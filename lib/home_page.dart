@@ -434,8 +434,8 @@ class _HomePageState extends State<HomePage> {
                                       (double.parse(_amountController.text) *
                                               100)
                                           .toInt(),
-                                  currency:
-                                      currencies[_choiceChipValue] ?? 'INR',
+                                  currency: currencies.keys
+                                      .toList()[_choiceChipValue],
                                   businessName: _businessNameController.text,
                                   receipt: _receiptController.text,
                                   description: _descriptionController.text,
@@ -454,32 +454,9 @@ class _HomePageState extends State<HomePage> {
                               },
                             );
                             setState(() => _paymentStatus = PaymentStatus.idle);
-
-                            // await Future.delayed(const Duration(seconds: 2),
-                            //     () {
-                            //   setState(() {
-                            //     _paymentStatus = PaymentStatus.success;
-                            //   });
-                            // });
-                            // setState(() => _isBottomSheetVisible = false);
                           } else {
-                            // If the form is not valid, display a snackbar. In the real world,
-                            // you'd often call a server or save the information in a database.
                             _showErrorBar(timeoutSeconds: 4);
                           }
-
-                          // checkoutOrder(
-                          //   amount: 50000,
-                          //   currency: 'INR',
-                          //   businessName: 'MyCompany',
-                          //   receipt: 'receipt#001',
-                          //   description: 'First order',
-                          //   user: UserDetails(
-                          //     name: 'Souvik Biswas',
-                          //     email: 'souvik@flutterflow.io',
-                          //     contact: '+919999998888',
-                          //   ),
-                          // );
                         },
                         child: const Padding(
                           padding: EdgeInsets.all(14.0),
@@ -676,6 +653,7 @@ class _ProgressBottomSheetState extends State<ProgressBottomSheet> {
     int timeout = 60, // in seconds
   }) async {
     setState(() => _processingOrderDetails = null);
+    log('CURRENCY: $currency');
     try {
       final result = await _functions.httpsCallable('createOrder').call(
         <String, dynamic>{
