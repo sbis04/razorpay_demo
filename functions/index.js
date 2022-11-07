@@ -14,7 +14,7 @@ exports.createOrder = functions.https.onCall(async (data, context) => {
       currency: data.currency,
       receipt: data.receipt,
       notes: {
-        info: data.description,
+        description: data.description,
       },
     });
 
