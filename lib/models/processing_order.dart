@@ -4,8 +4,8 @@
 
 import 'dart:convert';
 
-class Order {
-  Order({
+class ProcessingOrder {
+  ProcessingOrder({
     this.amount,
     this.amountPaid,
     this.notes,
@@ -31,7 +31,7 @@ class Order {
   final String? status;
   final int? attempts;
 
-  Order copyWith({
+  ProcessingOrder copyWith({
     int? amount,
     int? amountPaid,
     Notes? notes,
@@ -44,7 +44,7 @@ class Order {
     String? status,
     int? attempts,
   }) =>
-      Order(
+      ProcessingOrder(
         amount: amount ?? this.amount,
         amountPaid: amountPaid ?? this.amountPaid,
         notes: notes ?? this.notes,
@@ -58,11 +58,12 @@ class Order {
         attempts: attempts ?? this.attempts,
       );
 
-  factory Order.fromJson(String str) => Order.fromMap(json.decode(str));
+  factory ProcessingOrder.fromJson(String str) =>
+      ProcessingOrder.fromMap(json.decode(str));
 
   String toJson() => json.encode(toMap());
 
-  factory Order.fromMap(Map<String, dynamic> json) => Order(
+  factory ProcessingOrder.fromMap(Map<String, dynamic> json) => ProcessingOrder(
         amount: json["amount"],
         amountPaid: json["amount_paid"],
         notes: Notes.fromMap(Map<String, dynamic>.from(json["notes"])),
@@ -92,17 +93,19 @@ class Order {
 }
 
 class Notes {
-  Notes({this.info});
+  Notes({this.description});
 
-  final String? info;
+  final String? description;
 
-  Notes copyWith({String? info}) => Notes(info: info ?? this.info);
+  Notes copyWith({String? description}) =>
+      Notes(description: description ?? this.description);
 
   factory Notes.fromJson(String str) => Notes.fromMap(json.decode(str));
 
   String toJson() => json.encode(toMap());
 
-  factory Notes.fromMap(Map<String, dynamic> json) => Notes(info: json["info"]);
+  factory Notes.fromMap(Map<String, dynamic> json) =>
+      Notes(description: json["description"]);
 
-  Map<String, dynamic> toMap() => {"info": info};
+  Map<String, dynamic> toMap() => {"description": description};
 }
