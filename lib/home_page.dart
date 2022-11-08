@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:developer';
 
 import 'package:cloud_functions/cloud_functions.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 import 'package:razorpay_demo/models/order_details.dart';
 import 'package:razorpay_demo/models/processing_order.dart';
@@ -13,6 +13,8 @@ import 'package:razorpay_demo/utils/validator.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 
 import 'models/user_details.dart';
+import 'utils/razorpay_client/razorpay_checkout_stub.dart'
+    if (dart.library.html) 'utils/razorpay_client/razorpay_checkout_web.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -35,10 +37,6 @@ class _HomePageState extends State<HomePage> {
     'MYR': 'RM',
   };
   int _choiceChipValue = 7; // INR initially
-  // Order? _orderDetails;
-  // late PaymentStatus _paymentStatus;
-
-  // late final FirebaseFunctions _functions;
 
   // For TextFields
   late final TextEditingController _amountController;
@@ -50,7 +48,6 @@ class _HomePageState extends State<HomePage> {
   late final TextEditingController _userContactController;
 
   bool _isErrorBarVisible = false;
-  // bool _isBottomSheetVisible = false;
   late PaymentStatus _paymentStatus;
 
   Timer? _timer;
@@ -74,7 +71,6 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void initState() {
-    // _functions = FirebaseFunctions.instance;
     _paymentStatus = PaymentStatus.idle;
     _amountController = TextEditingController();
     _businessNameController = TextEditingController();
@@ -83,114 +79,14 @@ class _HomePageState extends State<HomePage> {
     _userNameController = TextEditingController();
     _userEmailController = TextEditingController();
     _userContactController = TextEditingController();
-    // initRazorpay();
     super.initState();
   }
 
   @override
   void dispose() {
-    // _razorpay.clear();
     _timer?.cancel();
     super.dispose();
   }
-
-  // initRazorpay() {
-  //   _razorpay = Razorpay();
-  //   _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
-  //   _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
-  //   _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
-  // }
-
-  // Future<void> _handlePaymentSuccess(PaymentSuccessResponse response) async {
-  //   // When payment succeeds
-  //   log('Payment successful');
-  //   log(
-  //     'RESPONSE: ${response.orderId}, ${response.paymentId}, ${response.signature}',
-  //   );
-  //   bool isValid = await _verifySignature(
-  //       orderId: _orderDetails?.id ?? '',
-  //       paymentId: response.paymentId ?? '',
-  //       signature: response.signature ?? '');
-  //   log("IS VALID: ${isValid ? 'true' : 'false'}");
-  // }
-
-  // void _handlePaymentError(PaymentFailureResponse response) {
-  //   // When payment fails
-  //   log('Payment error');
-  //   log('RESPONSE (${response.code}): ${response.message}');
-  //   setState(() => _orderDetails = null);
-  // }
-
-  // void _handleExternalWallet(ExternalWalletResponse response) {
-  //   // When an external wallet was selected
-  //   log('Payment external wallet');
-  //   log('RESPONSE: ${response.walletName}');
-  // }
-
-  // Future<bool> _verifySignature({
-  //   required String orderId,
-  //   required String paymentId,
-  //   required String signature,
-  // }) async {
-  //   try {
-  //     final result = await _functions.httpsCallable('verifySignature').call(
-  //       <String, dynamic>{
-  //         'orderId': orderId,
-  //         'paymentId': paymentId,
-  //         'signature': signature,
-  //       },
-  //     );
-  //     return result.data;
-  //   } on FirebaseFunctionsException catch (error) {
-  //     log('ERROR: ${error.code} (${error.details}): ${error.message}');
-  //   }
-  //   return false;
-  // }
-
-  // checkoutOrder({
-  //   required int amount, // Enter the amount in the smallest currency
-  //   required String currency, // Eg: INR
-  //   required String receipt, // Eg: receipt#001
-  //   required String businessName, // Eg: Acme Corp.
-  //   required UserDetails user,
-  //   String description = '',
-  //   int timeout = 60, // in seconds
-  // }) async {
-  //   setState(() => _orderDetails = null);
-  //   try {
-  //     final result = await _functions.httpsCallable('createOrder').call(
-  //       <String, dynamic>{
-  //         'amount': amount,
-  //         'currency': currency,
-  //         'receipt': receipt,
-  //         'description': description,
-  //       },
-  //     );
-  //     final responseData = result.data as Map<String, dynamic>;
-  //     final orderDetails = Order.fromMap(responseData);
-  //     log('ORDER ID: ${orderDetails.id}');
-  //     setState(() => _orderDetails = orderDetails);
-  //   } on FirebaseFunctionsException catch (error) {
-  //     log('ERROR: ${error.code} (${error.details}): ${error.message}');
-  //   }
-
-  //   if (_orderDetails != null) {
-  //     var options = {
-  //       'key': RazorpaySecret.keyId,
-  //       'amount': amount,
-  //       'name': businessName,
-  //       'order_id': _orderDetails!.id,
-  //       'description': description,
-  //       'timeout': timeout,
-  //       'prefill': {
-  //         'name': user.name,
-  //         'email': user.email,
-  //         'contact': user.contact,
-  //       }
-  //     };
-  //     _razorpay.open(options);
-  //   }
-  // }
 
   @override
   Widget build(BuildContext context) {
@@ -283,6 +179,7 @@ class _HomePageState extends State<HomePage> {
                       ),
                       ExcludeFocus(
                         child: Wrap(
+                          runSpacing: 8,
                           children: List.generate(
                             currencies.length,
                             (index) => Padding(
@@ -319,7 +216,6 @@ class _HomePageState extends State<HomePage> {
                         hintText: 'Enter your business name',
                         inputType: TextInputType.text,
                         inputAction: TextInputAction.next,
-                        // Allow only two decimals digits
                         validator: Validator.businessName,
                         textCapitalization: TextCapitalization.words,
                       ),
@@ -329,7 +225,6 @@ class _HomePageState extends State<HomePage> {
                         hintText: 'Enter your receipt',
                         inputType: TextInputType.text,
                         inputAction: TextInputAction.next,
-                        // Allow only two decimals digits
                         validator: Validator.receipt,
                       ),
                       InputField(
@@ -338,7 +233,6 @@ class _HomePageState extends State<HomePage> {
                         hintText: 'Enter a description of the order',
                         inputType: TextInputType.text,
                         inputAction: TextInputAction.next,
-                        // Allow only two decimals digits
                         validator: Validator.description,
                         textCapitalization: TextCapitalization.sentences,
                         maxLines: null,
@@ -546,12 +440,14 @@ class _ProgressBottomSheetState extends State<ProgressBottomSheet> {
   late final OrderDetails _orderDetails;
   ProcessingOrder? _processingOrderDetails;
   late PaymentStatus _paymentStatus;
+  late final RazorpayCheckout _razorpayCheckout;
 
   @override
   void initState() {
+    _orderDetails = widget.orderDetails;
     _functions = FirebaseFunctions.instance;
     _paymentStatus = PaymentStatus.processing;
-    _orderDetails = widget.orderDetails;
+    _razorpayCheckout = RazorpayCheckout();
     startCheckout();
     super.initState();
   }
@@ -563,11 +459,9 @@ class _ProgressBottomSheetState extends State<ProgressBottomSheet> {
   }
 
   startCheckout() {
-    _razorpay = Razorpay();
     _paymentStatus = PaymentStatus.idle;
-    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
-    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
-    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
+
+    initializeRazorpay();
     checkoutOrder(
       amount: _orderDetails.amount,
       currency: _orderDetails.currency,
@@ -576,6 +470,15 @@ class _ProgressBottomSheetState extends State<ProgressBottomSheet> {
       description: _orderDetails.description,
       user: _orderDetails.user,
     );
+  }
+
+  initializeRazorpay() {
+    _razorpay = Razorpay();
+    if (!kIsWeb) {
+      _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
+      _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+      _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
+    }
   }
 
   Future<void> _handlePaymentSuccess(PaymentSuccessResponse response) async {
@@ -602,10 +505,55 @@ class _ProgressBottomSheetState extends State<ProgressBottomSheet> {
     );
   }
 
+  Future<void> _handleWebPaymentSuccess({
+    required String? orderId,
+    required String? paymentId,
+    required String? signature,
+  }) async {
+    // When payment succeeds
+    log('Payment successful');
+    log('RESPONSE: $orderId, $paymentId, $signature');
+    bool isValid = await _verifySignature(
+      orderId: _processingOrderDetails?.id ?? '',
+      paymentId: paymentId ?? '',
+      signature: signature ?? '',
+    );
+    log("IS VALID: ${isValid ? 'true' : 'false'}");
+
+    if (isValid) {
+      setState(() => _paymentStatus = PaymentStatus.success);
+    } else {
+      setState(() => _paymentStatus = PaymentStatus.failed);
+    }
+    widget.onPaymentStateChange(_paymentStatus);
+    Future.delayed(
+      const Duration(seconds: 2),
+      () => Navigator.of(context).pop(),
+    );
+  }
+
   void _handlePaymentError(PaymentFailureResponse response) {
     // When payment fails
     log('Payment error');
     log('RESPONSE (${response.code}): ${response.message}');
+    setState(() {
+      _processingOrderDetails = null;
+      _paymentStatus = PaymentStatus.failed;
+    });
+    widget.onPaymentStateChange(_paymentStatus);
+    Future.delayed(
+      const Duration(seconds: 2),
+      () => Navigator.of(context).pop(),
+    );
+  }
+
+  void _handleWebPaymentError({
+    required String? errorCode,
+    required String? errorMessage,
+  }) {
+    // When web payment fails
+    log('Payment error');
+    log('RESPONSE ($errorCode): $errorMessage');
     setState(() {
       _processingOrderDetails = null;
       _paymentStatus = PaymentStatus.failed;
@@ -653,7 +601,6 @@ class _ProgressBottomSheetState extends State<ProgressBottomSheet> {
     int timeout = 60, // in seconds
   }) async {
     setState(() => _processingOrderDetails = null);
-    log('CURRENCY: $currency');
     try {
       final result = await _functions.httpsCallable('createOrder').call(
         <String, dynamic>{
@@ -683,9 +630,28 @@ class _ProgressBottomSheetState extends State<ProgressBottomSheet> {
           'name': user.name,
           'email': user.email,
           'contact': user.contact,
+        },
+        'retry': {
+          'enabled': false,
         }
       };
-      _razorpay.open(options);
+      if (kIsWeb) {
+        final data = await _razorpayCheckout.checkout(options);
+        if (data['razorpayStatus'] == 'SUCCESS') {
+          _handleWebPaymentSuccess(
+            orderId: data['orderId'],
+            paymentId: data['paymentId'],
+            signature: data['signature'],
+          );
+        } else {
+          _handleWebPaymentError(
+            errorCode: data['errorCode'],
+            errorMessage: data['errorDescription'],
+          );
+        }
+      } else {
+        _razorpay.open(options);
+      }
     }
   }
 
