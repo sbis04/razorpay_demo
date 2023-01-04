@@ -1,0 +1,21 @@
+{
+    "key": "RazorpaySecret.keyId",
+    "amount": "amount",
+    "name": "businessName",
+    "order_id": ".id",
+    "description": "description",
+    "timeout": "60",
+    "prefill": {
+        "name": "user.name",
+        "email": "user.email",
+        "contact": "user.contact"
+    },
+    "retry": {
+        "enabled": false
+    },
+    "theme": {
+        "hide_topbar": true,
+        "color": "#3399cc",
+        "backdrop_color": "#3399cc"
+    }
+}

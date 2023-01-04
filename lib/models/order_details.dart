@@ -1,4 +1,4 @@
-import 'package:razorpay_demo/models/user_details.dart';
+import 'package:razorpay_demo/models/razorpay_options.dart';
 
 class OrderDetails {
   final int amount;
@@ -6,7 +6,7 @@ class OrderDetails {
   final String businessName;
   final String receipt;
   final String description;
-  final UserDetails user;
+  final Prefill prefill;
 
   OrderDetails({
     required this.amount,
@@ -14,6 +14,6 @@ class OrderDetails {
     required this.businessName,
     required this.receipt,
     required this.description,
-    required this.user,
+    required this.prefill,
   });
 }

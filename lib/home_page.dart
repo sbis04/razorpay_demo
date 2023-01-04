@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:developer';
 
 import 'package:cloud_functions/cloud_functions.dart';
@@ -7,14 +8,32 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:razorpay_demo/models/order_details.dart';
 import 'package:razorpay_demo/models/processing_order.dart';
+import 'package:razorpay_demo/models/razorpay_options.dart';
 import 'package:razorpay_demo/res/palette.dart';
 import 'package:razorpay_demo/secrets.dart';
 import 'package:razorpay_demo/utils/validator.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 
-import 'models/user_details.dart';
 import 'utils/razorpay_client/razorpay_checkout_stub.dart'
     if (dart.library.html) 'utils/razorpay_client/razorpay_checkout_web.dart';
+
+// class WebPaymentResponse {
+//   external bool get isSuccessful;
+//   external String? get orderId;
+//   external String? get paymentId;
+//   external String? get signature;
+//   external String? get errorCode;
+//   external String? get errorDescription;
+
+//   external factory WebPaymentResponse({
+//     bool isSuccessful,
+//     String? orderId,
+//     String? paymentId,
+//     String? signature,
+//     String? errorCode,
+//     String? errorDescription,
+//   });
+// }
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -72,13 +91,13 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     _paymentStatus = PaymentStatus.idle;
-    _amountController = TextEditingController();
-    _businessNameController = TextEditingController();
+    _amountController = TextEditingController(text: '124.99');
+    _businessNameController = TextEditingController(text: 'Test Company');
     _receiptController = TextEditingController(text: 'receipt#001');
-    _descriptionController = TextEditingController();
-    _userNameController = TextEditingController();
-    _userEmailController = TextEditingController();
-    _userContactController = TextEditingController();
+    _descriptionController = TextEditingController(text: 'Sample txn');
+    _userNameController = TextEditingController(text: 'Test');
+    _userEmailController = TextEditingController(text: 'test@test.io');
+    _userContactController = TextEditingController(text: '9999999999');
     super.initState();
   }
 
@@ -333,10 +352,10 @@ class _HomePageState extends State<HomePage> {
                                   businessName: _businessNameController.text,
                                   receipt: _receiptController.text,
                                   description: _descriptionController.text,
-                                  user: UserDetails(
-                                    name: _userNameController.text,
-                                    email: _userEmailController.text,
-                                    contact: _userContactController.text,
+                                  prefill: Prefill(
+                                    userName: _userNameController.text,
+                                    userEmail: _userEmailController.text,
+                                    userContact: _userContactController.text,
                                   ),
                                 );
 
@@ -468,20 +487,40 @@ class _ProgressBottomSheetState extends State<ProgressBottomSheet> {
       businessName: _orderDetails.businessName,
       receipt: _orderDetails.receipt,
       description: _orderDetails.description,
-      user: _orderDetails.user,
+      prefill: _orderDetails.prefill,
     );
+  }
+
+  void webCheckoutResponse(String data) {
+    final jsonCheckoutResponse = jsonDecode(data) as Map<String, dynamic>;
+    if (jsonCheckoutResponse['isSuccessful']) {
+      handlePaymentSuccess(PaymentSuccessResponse(
+          jsonCheckoutResponse['paymentId'],
+          jsonCheckoutResponse['orderId'],
+          jsonCheckoutResponse['signature']));
+    } else {
+      handlePaymentError(PaymentFailureResponse(
+        Razorpay.UNKNOWN_ERROR,
+        Razorpay.EVENT_PAYMENT_ERROR,
+        {
+          'errorCode': jsonCheckoutResponse['errorCode'],
+          'errorDescription': jsonCheckoutResponse['errorDescription'],
+        },
+      ));
+    }
   }
 
   initializeRazorpay() {
     _razorpay = Razorpay();
-    if (!kIsWeb) {
-      _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
-      _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
+    if (kIsWeb) {
+    } else {
+      _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, handlePaymentSuccess);
+      _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, handlePaymentError);
       _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
     }
   }
 
-  Future<void> _handlePaymentSuccess(PaymentSuccessResponse response) async {
+  Future<void> handlePaymentSuccess(PaymentSuccessResponse response) async {
     // When payment succeeds
     log('Payment successful');
     log(
@@ -505,55 +544,10 @@ class _ProgressBottomSheetState extends State<ProgressBottomSheet> {
     );
   }
 
-  Future<void> _handleWebPaymentSuccess({
-    required String? orderId,
-    required String? paymentId,
-    required String? signature,
-  }) async {
-    // When payment succeeds
-    log('Payment successful');
-    log('RESPONSE: $orderId, $paymentId, $signature');
-    bool isValid = await _verifySignature(
-      orderId: _processingOrderDetails?.id ?? '',
-      paymentId: paymentId ?? '',
-      signature: signature ?? '',
-    );
-    log("IS VALID: ${isValid ? 'true' : 'false'}");
-
-    if (isValid) {
-      setState(() => _paymentStatus = PaymentStatus.success);
-    } else {
-      setState(() => _paymentStatus = PaymentStatus.failed);
-    }
-    widget.onPaymentStateChange(_paymentStatus);
-    Future.delayed(
-      const Duration(seconds: 2),
-      () => Navigator.of(context).pop(),
-    );
-  }
-
-  void _handlePaymentError(PaymentFailureResponse response) {
+  void handlePaymentError(PaymentFailureResponse response) {
     // When payment fails
     log('Payment error');
-    log('RESPONSE (${response.code}): ${response.message}');
-    setState(() {
-      _processingOrderDetails = null;
-      _paymentStatus = PaymentStatus.failed;
-    });
-    widget.onPaymentStateChange(_paymentStatus);
-    Future.delayed(
-      const Duration(seconds: 2),
-      () => Navigator.of(context).pop(),
-    );
-  }
-
-  void _handleWebPaymentError({
-    required String? errorCode,
-    required String? errorMessage,
-  }) {
-    // When web payment fails
-    log('Payment error');
-    log('RESPONSE ($errorCode): $errorMessage');
+    log('RESPONSE (${response.code}): ${response.message}, ${response.error}');
     setState(() {
       _processingOrderDetails = null;
       _paymentStatus = PaymentStatus.failed;
@@ -596,7 +590,7 @@ class _ProgressBottomSheetState extends State<ProgressBottomSheet> {
     required String currency, // Eg: INR
     required String receipt, // Eg: receipt#001
     required String businessName, // Eg: Acme Corp.
-    required UserDetails user,
+    required Prefill prefill,
     String description = '',
     int timeout = 60, // in seconds
   }) async {
@@ -619,36 +613,18 @@ class _ProgressBottomSheetState extends State<ProgressBottomSheet> {
     }
 
     if (_processingOrderDetails != null) {
-      var options = {
-        'key': RazorpaySecret.keyId,
-        'amount': amount,
-        'name': businessName,
-        'order_id': _processingOrderDetails!.id,
-        'description': description,
-        'timeout': timeout,
-        'prefill': {
-          'name': user.name,
-          'email': user.email,
-          'contact': user.contact,
-        },
-        'retry': {
-          'enabled': false,
-        }
-      };
+      final options = RazorpayOptions(
+        key: RazorpaySecret.keyId,
+        amount: amount,
+        businessName: businessName,
+        orderId: _processingOrderDetails!.id!,
+        description: description,
+        timeout: timeout,
+        prefill: prefill,
+        retry: Retry(enabled: false),
+      ).toMap();
       if (kIsWeb) {
-        final data = await _razorpayCheckout.checkout(options);
-        if (data['razorpayStatus'] == 'SUCCESS') {
-          _handleWebPaymentSuccess(
-            orderId: data['orderId'],
-            paymentId: data['paymentId'],
-            signature: data['signature'],
-          );
-        } else {
-          _handleWebPaymentError(
-            errorCode: data['errorCode'],
-            errorMessage: data['errorDescription'],
-          );
-        }
+        _razorpayCheckout.checkout(options, webCheckoutResponse);
       } else {
         _razorpay.open(options);
       }

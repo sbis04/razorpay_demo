@@ -1,27 +1,38 @@
 function checkout(optionsStr) {
     var options = JSON.parse(optionsStr);
-    var status;
+    var isProcessing = true;
     options["modal"] = {
         "escape": false,
         "ondismiss": function () {
-            window.sessionStorage.setItem('razorpayStatus', 'FAILED');
-            if (!window.sessionStorage['errorCode']) {
-                window.sessionStorage.setItem('errorCode', 'MODAL_DISMISSED');
-                window.sessionStorage.setItem('errorDescription', 'Razorpay payment modal dismissed');
+            if (isProcessing) {
+                let responseStr = JSON.stringify({
+                    'isSuccessful': false,
+                    'errorCode': 'MODAL_DISMISSED',
+                    'errorDescription': 'Razorpay payment modal dismissed'
+                });
+                handleWebCheckoutResponse(responseStr);
             }
         }
     };
     options.handler = function (response) {
-        window.sessionStorage.setItem('razorpayStatus', 'SUCCESS');
-        window.sessionStorage.setItem('orderId', response.razorpay_order_id);
-        window.sessionStorage.setItem('paymentId', response.razorpay_payment_id);
-        window.sessionStorage.setItem('signature', response.razorpay_signature);
+        let responseStr = JSON.stringify({
+            'isSuccessful': true,
+            'orderId': response.razorpay_order_id,
+            'paymentId': response.razorpay_payment_id,
+            'signature': response.razorpay_signature
+        });
+        isProcessing = false;
+        handleWebCheckoutResponse(responseStr);
     }
-    var rzp1 = new Razorpay(options);
-    rzp1.on('payment.failed', function (response) {
-        window.sessionStorage.setItem('razorpayStatus', 'FAILED');
-        window.sessionStorage.setItem('errorCode', response.error.code);
-        window.sessionStorage.setItem('errorDescription', response.error.description);
+    let razorpay = new Razorpay(options);
+    razorpay.on('payment.failed', function (response) {
+        let responseStr = JSON.stringify({
+            'isSuccessful': false,
+            'errorCode': response.error.code,
+            'errorDescription': response.error.description,
+        });
+        isProcessing = false;
+        handleWebCheckoutResponse(responseStr);
     });
-    rzp1.open();
+    razorpay.open();
 }

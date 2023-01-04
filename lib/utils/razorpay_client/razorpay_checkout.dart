@@ -1,3 +1,6 @@
 abstract class RazorpayCheckoutBase {
-  Future<Map<String, String>> checkout(Map<String, dynamic> options);
+  void checkout(
+    Map<String, dynamic> options,
+    Function(String) webCheckoutResponse,
+  );
 }
