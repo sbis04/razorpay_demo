@@ -62,49 +62,45 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Future<void> _onTapCheckoutButton() async {
-    if (_formKey.currentState!.validate()) {
-      setState(() => _paymentStatus = PaymentStatus.processing);
-      await showModalBottomSheet(
-        context: context,
-        barrierColor: Palette.blueDark.withOpacity(0.5),
-        isDismissible: false,
-        builder: (context) {
-          final order = OrderDetails(
-            amount: (double.parse(_amountController.text) * 100).toInt(),
-            currency: currencies.keys.toList()[_choiceChipValue],
-            businessName: _businessNameController.text,
-            receipt: _receiptController.text,
-            description: _descriptionController.text,
-            prefill: Prefill(
-              userName: _userNameController.text,
-              userEmail: _userEmailController.text,
-              userContact: _userContactController.text,
-            ),
-          );
-          return ProgressBottomSheet(
-            orderDetails: order,
-            onPaymentStateChange: (status) =>
-                setState(() => _paymentStatus = status),
-          );
-        },
-      );
-      setState(() => _paymentStatus = PaymentStatus.idle);
-    } else {
-      _showErrorBar(timeoutSeconds: 4);
-    }
+  Future<void> _onTapCheckout() async {
+    setState(() => _paymentStatus = PaymentStatus.processing);
+    await showModalBottomSheet(
+      context: context,
+      barrierColor: Palette.blueDark.withOpacity(0.5),
+      isDismissible: false,
+      builder: (context) {
+        final order = OrderDetails(
+          amount: (double.parse(_amountController.text) * 100).toInt(),
+          currency: currencies.keys.toList()[_choiceChipValue],
+          businessName: _businessNameController.text,
+          receipt: _receiptController.text,
+          description: _descriptionController.text,
+          prefill: Prefill(
+            userName: _userNameController.text,
+            userEmail: _userEmailController.text,
+            userContact: _userContactController.text,
+          ),
+        );
+        return ProgressBottomSheet(
+          orderDetails: order,
+          onPaymentStateChange: (status) =>
+              setState(() => _paymentStatus = status),
+        );
+      },
+    );
+    setState(() => _paymentStatus = PaymentStatus.idle);
   }
 
   @override
   void initState() {
     _paymentStatus = PaymentStatus.idle;
-    _amountController = TextEditingController(text: '124.99');
-    _businessNameController = TextEditingController(text: 'Test Company');
+    _amountController = TextEditingController();
+    _businessNameController = TextEditingController();
     _receiptController = TextEditingController(text: 'receipt#001');
-    _descriptionController = TextEditingController(text: 'Sample txn');
-    _userNameController = TextEditingController(text: 'Test');
-    _userEmailController = TextEditingController(text: 'test@test.io');
-    _userContactController = TextEditingController(text: '9999999999');
+    _descriptionController = TextEditingController();
+    _userNameController = TextEditingController();
+    _userEmailController = TextEditingController();
+    _userContactController = TextEditingController();
     super.initState();
   }
 
@@ -337,7 +333,13 @@ class _HomePageState extends State<HomePage> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                         ),
-                        onPressed: () async => _onTapCheckoutButton,
+                        onPressed: () {
+                          if (_formKey.currentState!.validate()) {
+                            _onTapCheckout();
+                          } else {
+                            _showErrorBar(timeoutSeconds: 4);
+                          }
+                        },
                         child: const Padding(
                           padding: EdgeInsets.all(14.0),
                           child: Text(
