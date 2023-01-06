@@ -354,12 +354,9 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                     ]
-                        .map(
-                          (item) => Padding(
+                        .map((item) => Padding(
                             padding: const EdgeInsets.only(bottom: 24),
-                            child: item,
-                          ),
-                        )
+                            child: item))
                         .toList(),
                   ),
                 ),
