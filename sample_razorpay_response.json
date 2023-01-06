@@ -1,0 +1,8 @@
+{
+    "isSuccessful": false,
+    "orderId": "response.razorpay_order_id",
+    "paymentId": "response.razorpay_payment_id",
+    "signature": "response.razorpay_signature",
+    "errorCode": "MODAL_DISMISSED",
+    "errorDescription": "Razorpay payment modal dismissed"
+}

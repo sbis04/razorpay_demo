@@ -1,7 +1,3 @@
-// To parse this JSON data, do
-//
-//     final order = orderFromMap(jsonString);
-
 import 'dart:convert';
 
 class ProcessingOrder {

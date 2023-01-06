@@ -1,39 +1,13 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:developer';
 
-import 'package:cloud_functions/cloud_functions.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:razorpay_demo/models/order_details.dart';
-import 'package:razorpay_demo/models/processing_order.dart';
 import 'package:razorpay_demo/models/razorpay_options.dart';
 import 'package:razorpay_demo/res/palette.dart';
-import 'package:razorpay_demo/secrets.dart';
 import 'package:razorpay_demo/utils/validator.dart';
-import 'package:razorpay_flutter/razorpay_flutter.dart';
-
-import 'utils/razorpay_client/razorpay_checkout_stub.dart'
-    if (dart.library.html) 'utils/razorpay_client/razorpay_checkout_web.dart';
-
-// class WebPaymentResponse {
-//   external bool get isSuccessful;
-//   external String? get orderId;
-//   external String? get paymentId;
-//   external String? get signature;
-//   external String? get errorCode;
-//   external String? get errorDescription;
-
-//   external factory WebPaymentResponse({
-//     bool isSuccessful,
-//     String? orderId,
-//     String? paymentId,
-//     String? signature,
-//     String? errorCode,
-//     String? errorDescription,
-//   });
-// }
+import 'package:razorpay_demo/widgets/input_field.dart';
+import 'package:razorpay_demo/widgets/progress_bottom_sheet.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -88,6 +62,39 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
+  Future<void> _onTapCheckoutButton() async {
+    if (_formKey.currentState!.validate()) {
+      setState(() => _paymentStatus = PaymentStatus.processing);
+      await showModalBottomSheet(
+        context: context,
+        barrierColor: Palette.blueDark.withOpacity(0.5),
+        isDismissible: false,
+        builder: (context) {
+          final order = OrderDetails(
+            amount: (double.parse(_amountController.text) * 100).toInt(),
+            currency: currencies.keys.toList()[_choiceChipValue],
+            businessName: _businessNameController.text,
+            receipt: _receiptController.text,
+            description: _descriptionController.text,
+            prefill: Prefill(
+              userName: _userNameController.text,
+              userEmail: _userEmailController.text,
+              userContact: _userContactController.text,
+            ),
+          );
+          return ProgressBottomSheet(
+            orderDetails: order,
+            onPaymentStateChange: (status) =>
+                setState(() => _paymentStatus = status),
+          );
+        },
+      );
+      setState(() => _paymentStatus = PaymentStatus.idle);
+    } else {
+      _showErrorBar(timeoutSeconds: 4);
+    }
+  }
+
   @override
   void initState() {
     _paymentStatus = PaymentStatus.idle;
@@ -127,13 +134,10 @@ class _HomePageState extends State<HomePage> {
       default:
         statusBarColor = Colors.white;
         navBarColor = Colors.white;
-
         break;
     }
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle(
-        systemNavigationBarColor: navBarColor,
-      ),
+      value: SystemUiOverlayStyle(systemNavigationBarColor: navBarColor),
       child: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
         child: Scaffold(
@@ -333,44 +337,7 @@ class _HomePageState extends State<HomePage> {
                             borderRadius: BorderRadius.circular(8),
                           ),
                         ),
-                        onPressed: () async {
-                          if (_formKey.currentState!.validate()) {
-                            setState(() =>
-                                _paymentStatus = PaymentStatus.processing);
-                            await showModalBottomSheet(
-                              context: context,
-                              barrierColor: Palette.blueDark.withOpacity(0.5),
-                              isDismissible: false,
-                              builder: (context) {
-                                final order = OrderDetails(
-                                  amount:
-                                      (double.parse(_amountController.text) *
-                                              100)
-                                          .toInt(),
-                                  currency: currencies.keys
-                                      .toList()[_choiceChipValue],
-                                  businessName: _businessNameController.text,
-                                  receipt: _receiptController.text,
-                                  description: _descriptionController.text,
-                                  prefill: Prefill(
-                                    userName: _userNameController.text,
-                                    userEmail: _userEmailController.text,
-                                    userContact: _userContactController.text,
-                                  ),
-                                );
-
-                                return ProgressBottomSheet(
-                                  orderDetails: order,
-                                  onPaymentStateChange: (status) =>
-                                      setState(() => _paymentStatus = status),
-                                );
-                              },
-                            );
-                            setState(() => _paymentStatus = PaymentStatus.idle);
-                          } else {
-                            _showErrorBar(timeoutSeconds: 4);
-                          }
-                        },
+                        onPressed: () async => _onTapCheckoutButton,
                         child: const Padding(
                           padding: EdgeInsets.all(14.0),
                           child: Text(
@@ -428,401 +395,6 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
       ),
-    );
-  }
-}
-
-enum PaymentStatus {
-  idle,
-  processing,
-  success,
-  failed,
-}
-
-class ProgressBottomSheet extends StatefulWidget {
-  const ProgressBottomSheet({
-    Key? key,
-    required this.orderDetails,
-    required this.onPaymentStateChange,
-  }) : super(key: key);
-
-  final OrderDetails orderDetails;
-  final Function(PaymentStatus) onPaymentStateChange;
-
-  @override
-  State<ProgressBottomSheet> createState() => _ProgressBottomSheetState();
-}
-
-class _ProgressBottomSheetState extends State<ProgressBottomSheet> {
-  late final Razorpay _razorpay;
-  late final FirebaseFunctions _functions;
-  late final OrderDetails _orderDetails;
-  ProcessingOrder? _processingOrderDetails;
-  late PaymentStatus _paymentStatus;
-  late final RazorpayCheckout _razorpayCheckout;
-
-  @override
-  void initState() {
-    _orderDetails = widget.orderDetails;
-    _functions = FirebaseFunctions.instance;
-    _paymentStatus = PaymentStatus.processing;
-    _razorpayCheckout = RazorpayCheckout();
-    startCheckout();
-    super.initState();
-  }
-
-  @override
-  void dispose() {
-    _razorpay.clear();
-    super.dispose();
-  }
-
-  startCheckout() {
-    _paymentStatus = PaymentStatus.idle;
-
-    initializeRazorpay();
-    checkoutOrder(
-      amount: _orderDetails.amount,
-      currency: _orderDetails.currency,
-      businessName: _orderDetails.businessName,
-      receipt: _orderDetails.receipt,
-      description: _orderDetails.description,
-      prefill: _orderDetails.prefill,
-    );
-  }
-
-  void webCheckoutResponse(String data) {
-    final jsonCheckoutResponse = jsonDecode(data) as Map<String, dynamic>;
-    if (jsonCheckoutResponse['isSuccessful']) {
-      handlePaymentSuccess(PaymentSuccessResponse(
-          jsonCheckoutResponse['paymentId'],
-          jsonCheckoutResponse['orderId'],
-          jsonCheckoutResponse['signature']));
-    } else {
-      handlePaymentError(PaymentFailureResponse(
-        Razorpay.UNKNOWN_ERROR,
-        Razorpay.EVENT_PAYMENT_ERROR,
-        {
-          'errorCode': jsonCheckoutResponse['errorCode'],
-          'errorDescription': jsonCheckoutResponse['errorDescription'],
-        },
-      ));
-    }
-  }
-
-  initializeRazorpay() {
-    _razorpay = Razorpay();
-    if (kIsWeb) {
-    } else {
-      _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, handlePaymentSuccess);
-      _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, handlePaymentError);
-      _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
-    }
-  }
-
-  Future<void> handlePaymentSuccess(PaymentSuccessResponse response) async {
-    // When payment succeeds
-    log('Payment successful');
-    log(
-      'RESPONSE: ${response.orderId}, ${response.paymentId}, ${response.signature}',
-    );
-    bool isValid = await _verifySignature(
-        orderId: _processingOrderDetails?.id ?? '',
-        paymentId: response.paymentId ?? '',
-        signature: response.signature ?? '');
-    log("IS VALID: ${isValid ? 'true' : 'false'}");
-
-    if (isValid) {
-      setState(() => _paymentStatus = PaymentStatus.success);
-    } else {
-      setState(() => _paymentStatus = PaymentStatus.failed);
-    }
-    widget.onPaymentStateChange(_paymentStatus);
-    Future.delayed(
-      const Duration(seconds: 2),
-      () => Navigator.of(context).pop(),
-    );
-  }
-
-  void handlePaymentError(PaymentFailureResponse response) {
-    // When payment fails
-    log('Payment error');
-    log('RESPONSE (${response.code}): ${response.message}, ${response.error}');
-    setState(() {
-      _processingOrderDetails = null;
-      _paymentStatus = PaymentStatus.failed;
-    });
-    widget.onPaymentStateChange(_paymentStatus);
-    Future.delayed(
-      const Duration(seconds: 2),
-      () => Navigator.of(context).pop(),
-    );
-  }
-
-  void _handleExternalWallet(ExternalWalletResponse response) {
-    // When an external wallet was selected
-    log('Payment external wallet');
-    log('RESPONSE: ${response.walletName}');
-  }
-
-  Future<bool> _verifySignature({
-    required String orderId,
-    required String paymentId,
-    required String signature,
-  }) async {
-    try {
-      final result = await _functions.httpsCallable('verifySignature').call(
-        <String, dynamic>{
-          'orderId': orderId,
-          'paymentId': paymentId,
-          'signature': signature,
-        },
-      );
-      return result.data;
-    } on FirebaseFunctionsException catch (error) {
-      log('ERROR: ${error.code} (${error.details}): ${error.message}');
-    }
-    return false;
-  }
-
-  checkoutOrder({
-    required int amount, // Enter the amount in the smallest currency
-    required String currency, // Eg: INR
-    required String receipt, // Eg: receipt#001
-    required String businessName, // Eg: Acme Corp.
-    required Prefill prefill,
-    String description = '',
-    int timeout = 60, // in seconds
-  }) async {
-    setState(() => _processingOrderDetails = null);
-    try {
-      final result = await _functions.httpsCallable('createOrder').call(
-        <String, dynamic>{
-          'amount': amount,
-          'currency': currency,
-          'receipt': receipt,
-          'description': description,
-        },
-      );
-      final responseData = result.data as Map<String, dynamic>;
-      final orderDetails = ProcessingOrder.fromMap(responseData);
-      log('ORDER ID: ${orderDetails.id}');
-      setState(() => _processingOrderDetails = orderDetails);
-    } on FirebaseFunctionsException catch (error) {
-      log('ERROR: ${error.code} (${error.details}): ${error.message}');
-    }
-
-    if (_processingOrderDetails != null) {
-      final options = RazorpayOptions(
-        key: RazorpaySecret.keyId,
-        amount: amount,
-        businessName: businessName,
-        orderId: _processingOrderDetails!.id!,
-        description: description,
-        timeout: timeout,
-        prefill: prefill,
-        retry: Retry(enabled: false),
-      ).toMap();
-      if (kIsWeb) {
-        _razorpayCheckout.checkout(options, webCheckoutResponse);
-      } else {
-        _razorpay.open(options);
-      }
-    }
-  }
-
-  Widget circularProgressIndicator() => const SizedBox(
-        height: 26,
-        width: 26,
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(
-            Colors.white,
-          ),
-          strokeWidth: 3,
-        ),
-      );
-
-  @override
-  Widget build(BuildContext context) {
-    final Color backgroundColor;
-    final String text;
-    final Widget trailingWidget;
-    switch (_paymentStatus) {
-      case PaymentStatus.processing:
-        backgroundColor = Palette.blueMedium;
-        text = 'Processing...';
-        trailingWidget = circularProgressIndicator();
-        break;
-      case PaymentStatus.success:
-        backgroundColor = Colors.green;
-        text = 'Payment successful';
-        trailingWidget = CircleAvatar(
-          backgroundColor: Colors.green.shade900,
-          child: const Icon(
-            Icons.check,
-            color: Colors.white,
-            size: 26,
-          ),
-        );
-
-        break;
-      case PaymentStatus.failed:
-        backgroundColor = Colors.red;
-        text = 'Payment Failed';
-        trailingWidget = CircleAvatar(
-          backgroundColor: Colors.red.shade800,
-          child: const Icon(
-            Icons.close,
-            color: Colors.white,
-            size: 26,
-          ),
-        );
-        break;
-      default:
-        backgroundColor = Palette.blueMedium;
-        text = 'Processing...';
-        trailingWidget = circularProgressIndicator();
-        break;
-    }
-    return Container(
-      width: double.maxFinite,
-      color: backgroundColor,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (_paymentStatus == PaymentStatus.processing)
-            LinearProgressIndicator(
-              backgroundColor: backgroundColor,
-              color: Palette.blueDark.withOpacity(0.5),
-              minHeight: 5,
-            ),
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 16.0,
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  text,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 0.8,
-                  ),
-                ),
-                trailingWidget,
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class InputField extends StatelessWidget {
-  const InputField({
-    super.key,
-    required this.controller,
-    required this.hintText,
-    this.textInputFormatter,
-    required this.inputType,
-    required this.inputAction,
-    required this.label,
-    this.leading,
-    this.validator,
-    this.primaryColor = Palette.blueMedium,
-    this.textColor = Palette.blueDark,
-    this.errorColor = Colors.red,
-    this.textCapitalization = TextCapitalization.none,
-    this.maxLines = 1,
-  });
-
-  final TextEditingController controller;
-  final String hintText;
-  final TextInputFormatter? textInputFormatter;
-  final Widget? leading;
-  final TextInputType inputType;
-  final TextInputAction inputAction;
-  final String? Function(String?)? validator;
-  final String label;
-  final Color primaryColor;
-  final Color textColor;
-  final Color errorColor;
-  final TextCapitalization textCapitalization;
-  final int? maxLines;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextFormField(
-      maxLines: maxLines,
-      controller: controller,
-      textCapitalization: textCapitalization,
-      style: TextStyle(
-        color: textColor,
-        fontSize: 18,
-        fontWeight: FontWeight.w500,
-        letterSpacing: 0.6,
-      ),
-      decoration: InputDecoration(
-        icon: leading,
-        hintText: hintText,
-        label: Text(
-          label,
-          style: TextStyle(
-            color: primaryColor.withOpacity(0.8),
-            fontSize: 18,
-            fontWeight: FontWeight.w500,
-            letterSpacing: 0.6,
-          ),
-        ),
-        hintStyle: TextStyle(
-          color: primaryColor.withOpacity(0.4),
-          fontWeight: FontWeight.normal,
-          fontSize: 18,
-          letterSpacing: 0.6,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderSide: BorderSide(
-            color: primaryColor,
-            width: 1.5,
-          ),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderSide: BorderSide(
-            color: primaryColor,
-            width: 3,
-          ),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderSide: BorderSide(
-            color: errorColor,
-            width: 1.5,
-          ),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderSide: BorderSide(
-            color: errorColor,
-            width: 3,
-          ),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        errorStyle: TextStyle(color: errorColor),
-        contentPadding: const EdgeInsets.fromLTRB(12, 16, 12, 16),
-      ),
-      cursorColor: primaryColor,
-      keyboardType: inputType,
-      textInputAction: inputAction,
-      inputFormatters:
-          textInputFormatter != null ? [textInputFormatter!] : null,
-      validator: validator,
     );
   }
 }
