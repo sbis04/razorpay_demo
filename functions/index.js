@@ -2,14 +2,17 @@ const functions = require("firebase-functions");
 const Razorpay = require("razorpay");
 const crypto = require("crypto");
 
-const instance = new Razorpay({
+// Initialize Razorpay
+const razorpay = new Razorpay({
   key_id: functions.config().razorpay.key_id,
   key_secret: functions.config().razorpay.key_secret,
 });
 
+// Function for creating an order required for processing
+// the checkout
 exports.createOrder = functions.https.onCall(async (data, context) => {
   try {
-    const order = await instance.orders.create({
+    const order = await razorpay.orders.create({
       amount: data.amount,
       currency: data.currency,
       receipt: data.receipt,
@@ -28,6 +31,7 @@ exports.createOrder = functions.https.onCall(async (data, context) => {
   }
 });
 
+// Function for verifying the signature after the checkout is done
 exports.verifySignature = functions.https.onCall(async (data, context) => {
   const hmac = crypto.createHmac(
       "sha256",

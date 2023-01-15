@@ -6,8 +6,8 @@ import 'package:razorpay_demo/models/order_details.dart';
 import 'package:razorpay_demo/models/razorpay_options.dart';
 import 'package:razorpay_demo/res/palette.dart';
 import 'package:razorpay_demo/utils/validator.dart';
-import 'package:razorpay_demo/widgets/input_field.dart';
-import 'package:razorpay_demo/widgets/progress_bottom_sheet.dart';
+
+import 'widgets/all_widgets.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -176,6 +176,7 @@ class _HomePageState extends State<HomePage> {
                     physics: const BouncingScrollPhysics(),
                     children: [
                       const SizedBox(height: 8),
+                      // Amount field
                       InputField(
                         controller: _amountController,
                         label: 'Amount',
@@ -196,6 +197,7 @@ class _HomePageState extends State<HomePage> {
                         ),
                         validator: Validator.amount,
                       ),
+                      // Currency choice chips
                       ExcludeFocus(
                         child: Wrap(
                           runSpacing: 8,
@@ -229,6 +231,7 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ),
                       ),
+                      // Business Name field
                       InputField(
                         controller: _businessNameController,
                         label: 'Business Name',
@@ -238,6 +241,7 @@ class _HomePageState extends State<HomePage> {
                         validator: Validator.businessName,
                         textCapitalization: TextCapitalization.words,
                       ),
+                      // Receipt field
                       InputField(
                         controller: _receiptController,
                         label: 'Receipt',
@@ -246,6 +250,7 @@ class _HomePageState extends State<HomePage> {
                         inputAction: TextInputAction.next,
                         validator: Validator.receipt,
                       ),
+                      // Description field
                       InputField(
                         controller: _descriptionController,
                         label: 'Description',
@@ -256,6 +261,7 @@ class _HomePageState extends State<HomePage> {
                         textCapitalization: TextCapitalization.sentences,
                         maxLines: null,
                       ),
+                      // User detail Inputs: Name, Email, Contact
                       Container(
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
@@ -324,6 +330,7 @@ class _HomePageState extends State<HomePage> {
                           ),
                         ),
                       ),
+                      // Checkout button
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Palette.blueMedium,
@@ -361,35 +368,8 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
               ),
-              AnimatedOpacity(
-                opacity: _isErrorBarVisible ? 1 : 0,
-                duration: const Duration(milliseconds: 300),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                  child: Container(
-                    width: double.maxFinite,
-                    decoration: BoxDecoration(
-                      color: Colors.red,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 16.0,
-                        vertical: 12.0,
-                      ),
-                      child: Text(
-                        'All fields are not valid',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w400,
-                          letterSpacing: 0.6,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+              // Shown only when there's an error in any input field validation
+              ErrorBar(isErrorBarVisible: _isErrorBarVisible),
             ],
           ),
         ),
