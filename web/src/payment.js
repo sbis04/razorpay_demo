@@ -3,6 +3,7 @@ function checkout(optionsStr) {
     var isProcessing = true;
     options["modal"] = {
         "escape": false,
+        // Handle if the dialog is dismissed
         "ondismiss": function () {
             if (isProcessing) {
                 let responseStr = JSON.stringify({
@@ -14,6 +15,7 @@ function checkout(optionsStr) {
             }
         }
     };
+    // Handling successful transaction
     options.handler = function (response) {
         let responseStr = JSON.stringify({
             'isSuccessful': true,
@@ -25,6 +27,7 @@ function checkout(optionsStr) {
         handleWebCheckoutResponse(responseStr);
     }
     let razorpay = new Razorpay(options);
+    // Handling failed transaction
     razorpay.on('payment.failed', function (response) {
         let responseStr = JSON.stringify({
             'isSuccessful': false,
@@ -34,5 +37,6 @@ function checkout(optionsStr) {
         isProcessing = false;
         handleWebCheckoutResponse(responseStr);
     });
+    // Start checkout process
     razorpay.open();
 }

@@ -46,20 +46,7 @@ class _ProgressBottomSheetState extends State<ProgressBottomSheet> {
   void initState() {
     _orderDetails = widget.orderDetails;
     _functions = FirebaseFunctions.instance;
-    _paymentStatus = PaymentStatus.processing;
     _razorpayCheckout = RazorpayCheckout();
-    _startCheckout();
-    super.initState();
-  }
-
-  @override
-  void dispose() {
-    _razorpay.clear();
-    super.dispose();
-  }
-
-  void _startCheckout() {
-    _paymentStatus = PaymentStatus.idle;
     _initializeRazorpay();
     _checkoutOrder(
       amount: _orderDetails.amount,
@@ -69,6 +56,13 @@ class _ProgressBottomSheetState extends State<ProgressBottomSheet> {
       description: _orderDetails.description,
       prefill: _orderDetails.prefill,
     );
+    super.initState();
+  }
+
+  @override
+  void dispose() {
+    _razorpay.clear();
+    super.dispose();
   }
 
   void _webCheckoutResponse(String data) {
@@ -92,9 +86,9 @@ class _ProgressBottomSheetState extends State<ProgressBottomSheet> {
   }
 
   _initializeRazorpay() {
+    _paymentStatus = PaymentStatus.idle;
     _razorpay = Razorpay();
-    if (kIsWeb) {
-    } else {
+    if (!kIsWeb) {
       _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
       _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
       _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleExternalWallet);
@@ -111,8 +105,6 @@ class _ProgressBottomSheetState extends State<ProgressBottomSheet> {
         orderId: _processingOrderDetails?.id ?? '',
         paymentId: response.paymentId ?? '',
         signature: response.signature ?? '');
-    log("IS VALID: ${isValid ? 'true' : 'false'}");
-
     if (isValid) {
       setState(() => _paymentStatus = PaymentStatus.success);
     } else {
