@@ -4,7 +4,7 @@ A Flutter app for demonstrating Razorpay integration that works on Android, iOS,
 
 > To get step-by-step information on how to build this app, check out the article "[Accept payments in your Flutter app using Razorpay](https://blog.flutterflow.io/accept-payments-in-your-flutter-app-using-razorpay)".
 
-https://user-images.githubusercontent.com/43280874/212851038-645413a8-dc68-4ece-933d-c02607451362.mp4
+https://user-images.githubusercontent.com/43280874/212852212-e8a65a0c-acad-4aac-a869-ff1971464ba5.mp4
 
 
 ## License
